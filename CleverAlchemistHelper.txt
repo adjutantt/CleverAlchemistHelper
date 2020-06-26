@@ -1,13 +1,12 @@
-## Title: CleverAlchemistHelper
-## APIVersion: 100030
-## Author: @adjutant
+## Title: Clever Alchemist Helper
+## APIVersion: 100031
+## Author: @adjutant [EU]
 ## Version: 1.0
 ## AddOnVersion: 100
 ## Description: Automatically disables the ability to drink potions if you are on the wrong bar.
-## SavedVariables: CleverAlchemistHelperVars
+## SavedVariables: CAHelperVars
 
 CleverAlchemistHelper.lua
-CleverAlchemistHelper.xml
 
 ; This Add-on is not created by, affiliated with or sponsored by ZeniMax
 ; Media Inc. or its affiliates. The Elder Scrolls? and related logos are
