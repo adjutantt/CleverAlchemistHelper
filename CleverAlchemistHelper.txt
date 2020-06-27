@@ -4,6 +4,7 @@
 ## Version: 1.0
 ## AddOnVersion: 100
 ## Description: Automatically disables the ability to drink potions if you are on the wrong bar.
+## DependsOn: LibAddonMenu-2.0>=28
 ## SavedVariables: CAHelperVars
 
 CleverAlchemistHelper.lua

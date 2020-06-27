@@ -1,13 +1,56 @@
 CAHelper = {}
 
-CAHelper.name = "CleverAlchemistHelper"
+local ADDON_NAME = "CleverAlchemistHelper"
+local ADDON_VERSION	= "1.0"
+-- local ESOUI_URL = ""
+
+local variableVersion = 2
+local savedVarsName = "CAHelperVars"
+
+local defaults = {
+	pvpOnly = false
+}
+
+local LAM = LibAddonMenu2
+
+local panelData = {
+    type = "panel",
+	name = "Clever Alchemist Helper",
+	author = "@adjutant [EU]",
+	version = ADDON_VERSION,
+--	website = ESOUI_URL,
+}
+
+local optionsData = {
+
+	[1] = {
+		type = "checkbox",
+        name = "PvP only mode",
+		tooltip = "Only activate in Cyrodiil and Battlegrounds",
+        getFunc = function() return CAHelper.settings.pvpOnly end,
+        setFunc = function(value) CAHelper.settings.pvpOnly = value end,
+        width = "full",
+		requiresReload = true
+  	},
+
+    [2] = {
+			type    = "header",
+			name    = nil,
+    },
+
+    [3] = {
+        type = "description",
+        title = nil,
+        text = "This addon is in active development. Feature requests and bug reports are very welcome! Please leave your comments at ESOUI.",
+        width = "full",
+    },
+}
 
 local currentHotbar
 local slotIndex
 local SET_ID = 225 -- hardcoded Clever Alchemist set ID
 local pastState
 local ZoneIsPvP
-local pvpOnly = false
 
 local gear = {}
 
@@ -43,26 +86,7 @@ local SLOTS = { -- a lot of rudimentary experimental/debug stuff here, will remo
     [EQUIP_SLOT_BACKUP_OFF] = { EQUIP_SLOT_BACKUP_OFF, 21, 'BackupOff' }
 }
 
-local TYPE = {
-    [0] = { EQUIP_TYPE_INVALID, 0, 'Empty' },
-    [1] = { EQUIP_TYPE_HEAD, 1, 'helmet' },
-    [2] = { EQUIP_TYPE_NECK, 2, 'necklace' },
-    [3] = { EQUIP_TYPE_CHEST, 3, 'chest' },
-    [4] = { EQUIP_TYPE_SHOULDERS, 4, 'shoulders' },
-    [5] = { EQUIP_TYPE_ONE_HAND, 5, 'oneHand' },
-    [6] = { EQUIP_TYPE_TWO_HAND, 6, 'twoHand' },
-    [7] = { EQUIP_TYPE_OFF_HAND, 7, 'offHand'},
-    [8] = { EQUIP_TYPE_WAIST, 8, 'waist' },
-    [9] = { EQUIP_TYPE_LEGS, 9, 'legs' },
-    [10] = { EQUIP_TYPE_FEET, 10, 'feet' },
-    [11] = { EQUIP_TYPE_COSTUME, 11, 'costume' },
-    [12] = { EQUIP_TYPE_RING, 12, 'ring' },
-    [13] = { EQUIP_TYPE_HAND, 13, 'hand' },
-    [14] = { EQUIP_TYPE_MAIN_HAND, 14, 'mainHand' },
-    [15] = { EQUIP_TYPE_POISON, 15, 'poison' }
-}
-
-local function stateChat()
+local function stateToChat()
     if pastState ~= STATE and pastState then
         if (STATE == MAINBAR) then
             d("[Clever Alchemist Helper]: Set detected on Mainbar")
@@ -70,13 +94,33 @@ local function stateChat()
             d("[Clever Alchemist Helper]: Set detected on Offbar")
         elseif (STATE == NEVER) then
             d("[Clever Alchemist Helper]: Not enough pieces equipped. Addon is OFF.")
-            CAHelperReticleIcon:SetHidden(false)
         elseif (STATE == ALWAYS) then
             d("[Clever Alchemist Helper]: Too many set pieces equipped. Addon is OFF.")
-            CAHelperReticleIcon:SetHidden(false)
         end
+		if (CAHelper.settings.pvpOnly) then d("[Clever Alchemist Helper]: Warning! PvP zone only mode.") end
     end
+
     pastState = STATE
+end
+
+local function toggleVisibility() -- TODO: rewrite this garbage
+	if (STATE == MAINBAR) then
+        CAHelperReticleIcon:SetHidden(false)
+		CAHelperReticleIcon:SetAlpha(0)
+		if currentHotbar == 0 then
+			CAHelperReticleIcon:SetAlpha(0.5)
+		end
+    elseif (STATE == OFFBAR) then
+        CAHelperReticleIcon:SetHidden(false)
+		CAHelperReticleIcon:SetAlpha(0)
+		if currentHotbar == 1 then
+			CAHelperReticleIcon:SetAlpha(0.5)
+		end
+    elseif (STATE == NEVER) then
+        CAHelperReticleIcon:SetHidden(true)
+    elseif (STATE == ALWAYS) then
+		CAHelperReticleIcon:SetHidden(true)
+    end
 end
 
 function eval()
@@ -123,7 +167,9 @@ function eval()
         STATE = NEVER
     end
 
-    stateChat()
+    stateToChat()
+	
+	toggleVisibility()
 end
 
 function parseSlot(eventCode, bagId, slotIndex, isNewItem, itemSoundCategory, updateReason, stackCountChange)
@@ -184,7 +230,7 @@ local function checkIfZoneIsPvP()
 end
 
 function Initialize()
-    EVENT_MANAGER:UnregisterForEvent(CAHelper.name, EVENT_ADD_ON_LOADED)
+    EVENT_MANAGER:UnregisterForEvent(ADDON_NAME, EVENT_ADD_ON_LOADED)
 
     createReticleControl()
     local TranslateTimeline, FadeInTimeline = registerAnimations(CAHelperReticleIcon)
@@ -192,24 +238,32 @@ function Initialize()
     for i, v in pairs(SLOTS) do
         gear[i] = { id = 0, link = 0, type = 0, isAlchemist = false, slot = 0 }
     end
+	
+	CAHelper.settings = ZO_SavedVars:NewAccountWide(savedVarsName, variableVersion, "globals", defaults, GetWorldName(), "AllAccountsTheSame")
+	
+	LAM:RegisterAddonPanel("Clever Alchemist Helper", panelData)
+	LAM:RegisterOptionControls("Clever Alchemist Helper", optionsData)
+	
+	currentHotbar = ACTION_BAR_ASSIGNMENT_MANAGER:GetCurrentHotbarCategory() -- get initial bar
 
     getEquippedGear()
     eval()
     CAHelper.ready = true
 
-    EVENT_MANAGER:RegisterForEvent(CAHelper.name, EVENT_INVENTORY_SINGLE_SLOT_UPDATE, parseSlot)
-    EVENT_MANAGER:AddFilterForEvent(CAHelper.name, EVENT_INVENTORY_SINGLE_SLOT_UPDATE, REGISTER_FILTER_BAG_ID, BAG_WORN)
-    EVENT_MANAGER:AddFilterForEvent(CAHelper.name, EVENT_INVENTORY_SINGLE_SLOT_UPDATE, REGISTER_FILTER_INVENTORY_UPDATE_REASON, INVENTORY_UPDATE_REASON_DEFAULT)
+    EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_INVENTORY_SINGLE_SLOT_UPDATE, parseSlot)
+    EVENT_MANAGER:AddFilterForEvent(ADDON_NAME, EVENT_INVENTORY_SINGLE_SLOT_UPDATE, REGISTER_FILTER_BAG_ID, BAG_WORN)
+    EVENT_MANAGER:AddFilterForEvent(ADDON_NAME, EVENT_INVENTORY_SINGLE_SLOT_UPDATE, REGISTER_FILTER_INVENTORY_UPDATE_REASON, INVENTORY_UPDATE_REASON_DEFAULT)
+	
+--	SLASH_COMMANDS["/cahelper"] = stateToChat
 
-    if pvpOnly then
-        EVENT_MANAGER:RegisterForEvent(CAHelper.name, EVENT_ZONE_CHANGED, checkIfZoneIsPvP)
+    if CAHelper.settings.pvpOnly then
+        EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_ZONE_CHANGED, checkIfZoneIsPvP)
         checkIfZoneIsPvP() -- if we are in AvA/BG on login
     end
 
-    if (pvpOnly and ZoneIsPvP) or not pvpOnly then
-        CAHelperReticleIcon:SetHidden(false)
-        local currentHotbar = ACTION_BAR_ASSIGNMENT_MANAGER:GetCurrentHotbarCategory() -- get initial bar
-        EVENT_MANAGER:RegisterForEvent(CAHelper.name, EVENT_ACTION_SLOTS_FULL_UPDATE, function(eventCode, isHotbarSwap) 
+    if (CAHelper.settings.pvpOnly and ZoneIsPvP) or not CAHelper.settings.pvpOnly then
+	
+        EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_ACTION_SLOTS_FULL_UPDATE, function(eventCode, isHotbarSwap)
 			if isHotbarSwap then
 				currentHotbar = 1 - currentHotbar -- switch between 0 and 1
 			end
@@ -235,9 +289,8 @@ function Initialize()
 			-- if flag then
 			local slotNum = tonumber(debug.traceback():match('keybind = "ACTION_BUTTON_(%d)')) -- get pressed button
 				if slotNum == 9 then -- break if consumable or empty slot
-					if (currentHotbar == 0 and STATE ~= MAINBAR) or 
-					(currentHotbar == 1 and STATE ~= OFFBAR) then
-					-- alert() -- notify player
+					if (currentHotbar == 1 and STATE == MAINBAR) or 
+				(currentHotbar == 0 and STATE == OFFBAR) then
 						return true -- ESO won't run ability press if PreHook returns true
 					end
 				else return false end
@@ -245,27 +298,10 @@ function Initialize()
     end
 end
 
-
---  ACTION_BAR_ASSIGNMENT_MANAGER:RegisterCallback("CurrentHotbarUpdated", -- to keep currentHotbar relevant
-    --function(hotbarCategory, oldHotbarCategory)
-    --  currentHotbar
---       = hotbarCategory
-
---  if (currentHotbar == 0 and STATE == MAINBAR) or 
---      (currentHotbar == 1 and STATE == OFFBAR) then
---          FadeInTimeline:PlayForward()
---  else
-    --  FadeInTimeline:PlayBackward() -- fadeOut :P
---  end
-
---  end)
-
--- local flag = true
-
 local function OnAddOnLoaded(event, addonName)
-	if addonName == CAHelper.name then
+	if addonName == ADDON_NAME then
 		Initialize()
 	end
 end
 
-EVENT_MANAGER:RegisterForEvent(CAHelper.name, EVENT_ADD_ON_LOADED, OnAddOnLoaded)
+EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_ADD_ON_LOADED, OnAddOnLoaded)
