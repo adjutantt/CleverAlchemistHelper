@@ -1,8 +1,8 @@
 ## Title: Clever Alchemist Helper
 ## APIVersion: 100031
 ## Author: @adjutant [EU]
-## Version: 1.0
-## AddOnVersion: 100
+## Version: 1.1
+## AddOnVersion: 101
 ## Description: Automatically disables the ability to drink potions if you are on the wrong bar.
 ## DependsOn: LibAddonMenu-2.0>=28
 ## SavedVariables: CAHelperVars

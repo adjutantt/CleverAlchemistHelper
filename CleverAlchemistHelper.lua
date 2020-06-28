@@ -1,8 +1,8 @@
 CAHelper = {}
 
 local ADDON_NAME = "CleverAlchemistHelper"
-local ADDON_VERSION	= "1.0"
--- local ESOUI_URL = ""
+local ADDON_VERSION	= "1.1"
+local ESOUI_URL = "https://www.esoui.com/downloads/info2688-CleverAlchemistHelper.html"
 
 local variableVersion = 2
 local savedVarsName = "CAHelperVars"
@@ -18,7 +18,7 @@ local panelData = {
 	name = "Clever Alchemist Helper",
 	author = "@adjutant [EU]",
 	version = ADDON_VERSION,
---	website = ESOUI_URL,
+	website = ESOUI_URL,
 }
 
 local optionsData = {
@@ -51,6 +51,7 @@ local slotIndex
 local SET_ID = 225 -- hardcoded Clever Alchemist set ID
 local pastState
 local ZoneIsPvP
+local isPotion
 
 local gear = {}
 
@@ -229,6 +230,17 @@ local function checkIfZoneIsPvP()
     end
 end
 
+local function getQuickSlotItemInfo(eventCode, actionSlotIndex)
+	local itemLink = GetSlotItemLink(actionSlotIndex)
+	local itemType = GetItemLinkItemType(itemLink)
+	if itemType == ITEMTYPE_POTION then	
+		isPotion = true
+	else
+		isPotion = false
+	end
+--	d(actionSlotIndex .. " : " .. itemType .. " " .. GetItemLinkName(itemLink) .. " " .. tostring(isPotion))
+end
+
 function Initialize()
     EVENT_MANAGER:UnregisterForEvent(ADDON_NAME, EVENT_ADD_ON_LOADED)
 
@@ -249,6 +261,9 @@ function Initialize()
     getEquippedGear()
     eval()
     CAHelper.ready = true
+	
+	getQuickSlotItemInfo() -- if there's a potion slotted on login
+	EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_ACTIVE_QUICKSLOT_CHANGED, getQuickSlotItemInfo)
 
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_INVENTORY_SINGLE_SLOT_UPDATE, parseSlot)
     EVENT_MANAGER:AddFilterForEvent(ADDON_NAME, EVENT_INVENTORY_SINGLE_SLOT_UPDATE, REGISTER_FILTER_BAG_ID, BAG_WORN)
@@ -289,8 +304,8 @@ function Initialize()
 			-- if flag then
 			local slotNum = tonumber(debug.traceback():match('keybind = "ACTION_BUTTON_(%d)')) -- get pressed button
 				if slotNum == 9 then -- break if consumable or empty slot
-					if (currentHotbar == 1 and STATE == MAINBAR) or 
-				(currentHotbar == 0 and STATE == OFFBAR) then
+					if ((currentHotbar == 1 and STATE == MAINBAR) or 
+				(currentHotbar == 0 and STATE == OFFBAR)) and isPotion then
 						return true -- ESO won't run ability press if PreHook returns true
 					end
 				else return false end
